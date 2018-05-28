@@ -1,0 +1,10 @@
+{
+"machine-type":"f1-micro",
+"image-family":"ubuntu-1804-lts",
+"image-project":"ubuntu-os-cloud",
+"boot-disk-size":"10",
+"boot-disk-type":"pd-standard",
+"boot-disk-device-name":"",
+"zone": "",
+"can-ip-forward":true
+}
