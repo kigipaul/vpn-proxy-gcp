@@ -14,13 +14,13 @@ ZONE_TW = "asia-east1-"
 ZONE_JP = "asia-northeast1-"
 ZONE_L = "abc"
 OUTPUT_CONFIG = "vpn-proxy.ovpn"
+STARTUP_SCRIPT = ROOT_PATH + "/script/install_vpn.sh"
 
 def usage():
     print("Usage: {} install <openvpn_client_config>".format(sys.argv[0]))
     print("")
     print("openvpn_client_config: Proxy target vpn server config.")
     print("")
-
 
 def _create_instance(conf, client_conf, uid, name, zone):
     rs = {}
@@ -29,12 +29,7 @@ def _create_instance(conf, client_conf, uid, name, zone):
     config_path = '/tmp/' + client_conf
     conf['boot-disk-device-name'] = "gcpjpdisk-{}".format(uid)
     conf['zone'] = zone
-    startup_script = os.popen(
-        "cat {}/script/install_vpn.sh|sed 's/!CLIENT_CONFIG!/{}/g'"\
-                .format(ROOT_PATH, config_path.replace('/','\\/')))\
-                .read()[:-1]
-    startup_script = re.sub(r'(^|\n)[ ]*#.*\n',r'',startup_script)\
-            .replace('\n',' && ')
+    conf['metadata-from-file'] = 'startup_script={}'.format(STARTUP_SCRIPT)
     # Create GCP Instance
     cmd = "gcloud compute instances create {}".format(name)
     for (key, val) in conf.items():
@@ -57,8 +52,9 @@ def _create_instance(conf, client_conf, uid, name, zone):
     
     time.sleep(10)
     # Install VPN-PROXY
+    restartup = "sudo google_metadata_script_runner --script-type startup"
     cmd = "gcloud compute ssh {} --zone {} --command \"{}\"".format(
-            name, zone, startup_script)
+            name, zone, restartup)
     print("Install VPN-PROXY ... ")
     print(">> {}".format(cmd))
     exe = os.system(cmd) 
