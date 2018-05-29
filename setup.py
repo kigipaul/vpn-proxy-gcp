@@ -26,10 +26,14 @@ def _create_instance(conf, client_conf, uid, name, zone):
     rs = {}
     print("Create instance {}".format(name))
     # Init GCP Instance info
-    config_path = '/tmp/' + client_conf
+    scp_root = '/tmp/'
+    config_path = scp_root + client_conf
+    start_script = 'install.sh'
     conf['boot-disk-device-name'] = "gcpjpdisk-{}".format(uid)
     conf['zone'] = zone
-    conf['metadata-from-file'] = 'startup_script={}'.format(STARTUP_SCRIPT)
+    os.system("cat {}|sed 's/!CLIENT_CONFIG!/{}/g' > {}"\
+            .format(STARTUP_SCRIPT, config_path.replace("/","\\/"), start_script))
+    os.system("chmod +x {}".format(start_script))
     # Create GCP Instance
     cmd = "gcloud compute instances create {}".format(name)
     for (key, val) in conf.items():
@@ -44,15 +48,18 @@ def _create_instance(conf, client_conf, uid, name, zone):
 
     time.sleep(30)
     # SCP Client Config into instance
-    cmd = "gcloud compute scp {} {}:{} --zone {}".format(
-            client_conf, name, config_path, conf['zone'])
+    cmd = "gcloud compute scp {} {} {}:{} --zone {}".format(
+            client_conf, start_script, 
+            name, 
+            scp_root,
+            conf['zone'])
     print("SCP Client config into instance ... ")
     print(">> {}".format(cmd))
     exe = os.system(cmd) 
-    
+    os.system("rm " + start_script) 
     time.sleep(10)
     # Install VPN-PROXY
-    restartup = "sudo google_metadata_script_runner --script-type startup"
+    restartup = "sudo {}".format(scp_root + start_script)
     cmd = "gcloud compute ssh {} --zone {} --command \"{}\"".format(
             name, zone, restartup)
     print("Install VPN-PROXY ... ")
