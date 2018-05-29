@@ -5,6 +5,7 @@ import json
 import random
 import uuid
 import re
+import time
 
 ROOT_PATH = os.path.dirname(sys.argv[0])
 DEFAULT_CONFIG = "{}/config/lower.json".format(ROOT_PATH)
@@ -23,13 +24,14 @@ def usage():
 
 def _create_instance(conf, client_conf, uid, name, zone):
     rs = {}
+    print("Create instance {}".format(name))
     # Init GCP Instance info
     config_path = '/tmp/' + client_conf
     conf['boot-disk-device-name'] = "gcpjpdisk-{}".format(uid)
     conf['zone'] = zone
     startup_script = os.popen(
-        "cat script/install_vpn.sh|sed 's/!CLIENT_CONFIG!/{}/g'"\
-                .format(config_path.replace('/','\\/')))\
+        "cat {}/script/install_vpn.sh|sed 's/!CLIENT_CONFIG!/{}/g'"\
+                .format(ROOT_PATH, config_path.replace('/','\\/')))\
                 .read()[:-1]
     startup_script = re.sub(r'(^|\n)[ ]*#.*\n',r'',startup_script)\
             .replace('\n',' && ')
@@ -41,20 +43,31 @@ def _create_instance(conf, client_conf, uid, name, zone):
                 cmd += " --{}".format(key)
         else:
             cmd += " --{} {}".format(key, val)
+    print("Execute create instance ... ")
+    print(">> {}".format(cmd))
     exe = os.system(cmd) 
+
+    time.sleep(30)
     # SCP Client Config into instance
     cmd = "gcloud compute scp {} {}:{} --zone {}".format(
             client_conf, name, config_path, conf['zone'])
+    print("SCP Client config into instance ... ")
+    print(">> {}".format(cmd))
     exe = os.system(cmd) 
     
+    time.sleep(10)
     # Install VPN-PROXY
-    cmd = "gcloud compute ssh {} --command \"{}\"".format(
-            name, startup_script)
+    cmd = "gcloud compute ssh {} --zone {} --command \"{}\"".format(
+            name, zone, startup_script)
+    print("Install VPN-PROXY ... ")
+    print(">> {}".format(cmd))
     exe = os.system(cmd) 
-
+    time.sleep(30)
     # Get VPN-PROXY config
     cmd = "gcloud compute scp {}:{} {} --zone {}".format(
             name, '/tmp/'+OUTPUT_CONFIG, '.', conf['zone'])
+    print("Get VPN-PROXY Config ... ")
+    print(">> {}".format(cmd))
     exe = os.system(cmd) 
     # Get GCP IP
     index = 4
@@ -93,7 +106,7 @@ def install(config=None):
         print("Error: Must have OpenVPN Client config")
         return False
     if len(config) > 0: 
-        if os.path.isfile(config[0]):
+        if not os.path.isfile(config[0]):
             print("Error: Not Found Config[{}]".format(config[0]))
             return False
         f = open(DEFAULT_CONFIG, 'r')
